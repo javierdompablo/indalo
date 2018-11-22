@@ -1,0 +1,49 @@
+---
+execution:
+- concurrency: 100
+  hold-for: 60s
+  iterations: 1
+  ramp-up: 30s
+  scenario: Thread Group
+scenarios:
+  Thread Group:
+    default-address: https://${TARGET_URL}:${TARGET_PORT}/
+    headers:
+      Content-Type: application/json
+    requests:
+    - assert:
+      - assume-success: false
+        contains:
+        - '"timed_out":false'
+        not: false
+        regexp: false
+        subject: body
+      body:
+        aggs:
+          per_ct_log_host:
+            aggs:
+              per_ct_log_path:
+                aggs:
+                  per_month:
+                    date_histogram:
+                      field: data.certificate.not_before
+                      format: yyyy-MM-dd
+                      interval: month
+                terms:
+                  field: data.log.host.path.keyword
+            terms:
+              field: data.log.host.host.keyword
+        query:
+          match_all: {}
+        size: 0
+      follow-redirects: true
+      label: search
+      method: POST
+      url: ct-log_entries/_search
+    store-cache: false
+    store-cookie: false
+    use-dns-cache-mgr: false
+    variables:
+      TARGET_PORT: '443'
+      TARGET_URL: indalo-gl-pre-elb-es-external-1770461167.eu-west-1.elb.amazonaws.com
+

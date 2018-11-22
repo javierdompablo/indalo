@@ -1,0 +1,305 @@
+---
+execution:
+- concurrency: 100
+  hold-for: 60s
+  ramp-up: 1000s
+  scenario: Indalo set
+scenarios:
+  Indalo set:
+    default-address: https://${TARGET_URL}:${TARGET_PORT}/
+    headers:
+      Content-Type: application/json
+    requests:
+      #- include-scenario: per_certificate_authority
+      #- include-scenario: per_ct_log_path_month
+      #- include-scenario: per_month
+      - include-scenario: per_certificate_authority_keyword
+      #- include-scenario: per_month_path
+      #- include-scenario: per_month_match_all
+      #- include-scenario: error_controller
+    store-cache: false
+    store-cookie: false
+    use-dns-cache-mgr: false
+    variables:
+      TARGET_PORT: '443'
+      TARGET_URL: indalo-gl-pre-elb-es-external-1770461167.eu-west-1.elb.amazonaws.com  
+  per_certificate_authority:
+    default-address: https://${TARGET_URL}:${TARGET_PORT}/
+    headers:
+      Content-Type: application/json
+    requests:
+    - assert:
+      - assume-success: false
+        contains:
+        - '"timed_out":false'
+        not: false
+        regexp: false
+        subject: body
+      - assume-success: false
+        contains:
+        - '200'
+        not: false
+        regexp: false
+        subject: http-code
+      body:
+        aggs:
+          per_certificate_authority:
+            aggs:
+              per_month:
+                date_histogram:
+                  field: data.certificate.not_before
+                  format: yyyy-MM-dd
+                  interval: year
+            terms:
+              field: data.certificate.issuer.oid-2-5-4-10.keyword
+        query:
+          match_all: {}
+        size: 0
+      follow-redirects: true
+      label: ct-log_certificates keyword
+      method: POST
+      url: ct-log_certificates/_doc/_search
+    store-cache: false
+    store-cookie: false
+    use-dns-cache-mgr: false
+    variables:
+      TARGET_PORT: '443'
+      TARGET_URL: indalo-gl-pre-elb-es-external-1770461167.eu-west-1.elb.amazonaws.com
+  per_ct_log_path_month:
+    default-address: https://${TARGET_URL}:${TARGET_PORT}/
+    headers:
+      Content-Type: application/json
+    requests:
+    - assert:
+      - assume-success: false
+        contains:
+        - '"timed_out":false'
+        not: false
+        regexp: false
+        subject: body
+      - assume-success: false
+        contains:
+        - '200'
+        not: false
+        regexp: false
+        subject: http-code
+      body:
+        aggs:
+          per_ct_log_host:
+            aggs:
+              per_ct_log_path:
+                aggs:
+                  per_month:
+                    date_histogram:
+                      field: data.certificate.not_before
+                      format: yyyy-MM-dd
+                      interval: month
+                terms:
+                  field: data.log.host.path.keyword
+            terms:
+              field: data.log.host.host.keyword
+        query:
+          match_all: {}
+        size: 0
+      follow-redirects: true
+      label: ct-log_entries keyword
+      method: POST
+      url: ct-log_entries/_search
+    store-cache: false
+    store-cookie: false
+    use-dns-cache-mgr: false
+    variables:
+      TARGET_PORT: '443'
+      TARGET_URL: indalo-gl-pre-elb-es-external-1770461167.eu-west-1.elb.amazonaws.com
+  per_month:
+    default-address: https://${TARGET_URL}:${TARGET_PORT}/
+    headers:
+      Content-Type: application/json
+    requests:
+    - assert:
+      - assume-success: false
+        contains:
+        - '"timed_out":false'
+        not: false
+        regexp: false
+        subject: body
+      - assume-success: false
+        contains:
+        - '200'
+        not: false
+        regexp: false
+        subject: http-code   
+      body:
+        aggs:
+          per_month:
+            date_histogram:
+              field: data.certificate.not_after
+              format: yyyy-MM-dd
+              interval: month
+        query:
+          match_all: {}
+        size: 0
+      follow-redirects: true
+      label: ct-log_certificates time interval
+      method: POST
+      url: ct-log_certificates/_doc/_search
+    store-cache: false
+    store-cookie: false
+    use-dns-cache-mgr: false
+    variables:
+      TARGET_PORT: '443'
+      TARGET_URL: indalo-gl-pre-elb-es-external-1770461167.eu-west-1.elb.amazonaws.com
+  per_certificate_authority_keyword:
+    default-address: https://${TARGET_URL}:${TARGET_PORT}/
+    headers:
+      Content-Type: application/json
+    requests:
+    - assert:
+      - assume-success: false
+        contains:
+        - '"timed_out":false'
+        not: false
+        regexp: false
+        subject: body              
+      - assume-success: false
+        contains:
+        - '200'
+        not: false
+        regexp: false
+        subject: http-code
+      body:
+        _source:
+        - data.certificate.subject_alternative_names
+        aggs:
+          per_certificate_authority:
+            aggs:
+              top_domains_hits:
+                top_hits:
+                  size: 100
+                  sort:
+                  - data.certificate.subject_alternative_names.keyword:
+                      order: desc
+            terms:
+              field: data.certificate.issuer.oid-2-5-4-10.keyword
+        query:
+          match_all: {}
+        size: 0
+      follow-redirects: true
+      timeout: 12000s
+      label: certificates keyword
+      method: POST
+      url: ct-log_certificates/_doc/_search
+    store-cache: false
+    store-cookie: false
+    use-dns-cache-mgr: false
+    variables:
+      TARGET_PORT: '443'
+      TARGET_URL: indalo-gl-pre-elb-es-external-1770461167.eu-west-1.elb.amazonaws.com
+  per_month_path:
+    default-address: https://${TARGET_URL}:${TARGET_PORT}/
+    headers:
+      Content-Type: application/json
+    requests:
+    - assert:
+      - assume-success: false
+        contains:
+        - '"timed_out":false'
+        not: false
+        regexp: false
+        subject: body
+      - assume-success: false
+        contains:
+        - '200'
+        not: false
+        regexp: false
+        subject: http-code    
+      body:
+        aggs:
+          per_month:
+            date_histogram:
+              field: data.sct.timestamp
+              interval: month
+        query:
+          match:
+            data.log.host.path: /icarus
+        size: 0
+      follow-redirects: true
+      label: ct-log_entries path
+      method: POST
+      url: ct-log_entries/_search
+    store-cache: false
+    store-cookie: false
+    use-dns-cache-mgr: false
+    variables:
+      TARGET_PORT: '443'
+      TARGET_URL: indalo-gl-pre-elb-es-external-1770461167.eu-west-1.elb.amazonaws.com
+  per_month_match_all:
+    default-address: https://${TARGET_URL}:${TARGET_PORT}/
+    headers:
+      Content-Type: application/json
+    requests:
+    - assert:
+      - assume-success: false
+        contains:
+        - '"timed_out":false'
+        not: false
+        regexp: false
+        subject: body
+      - assume-success: false
+        contains:
+        - '200'
+        not: false
+        regexp: false
+        subject: http-code
+      body:
+        aggs:
+          per_month:
+            date_histogram:
+              field: data.sct.timestamp
+              interval: month
+        query:
+          match_all: {}
+        size: 0
+      follow-redirects: true
+      timeout: 120000s
+      label: ct-log_entries timestamp
+      method: POST
+      url: ct-log_entries/_search
+    store-cache: false
+    store-cookie: false
+    use-dns-cache-mgr: false
+    variables:
+      TARGET_PORT: '443'
+      TARGET_URL: indalo-gl-pre-elb-es-external-1770461167.eu-west-1.elb.amazonaws.com
+  error_controller:
+    default-address: https://${TARGET_URL}:${TARGET_PORT}/
+    headers:
+      Content-Type: application/json
+    requests:
+    - assert:
+      - assume-success: true
+        contains:
+        - index_not_found_exception
+        not: false
+        regexp: false
+        subject: body
+      body:
+        aggs:
+          per_month:
+            date_histogram:
+              field: data.certificate.not_before
+              format: yyyy-MM-dd
+              interval: month
+        query:
+          match_all: {}
+        size: 0
+      follow-redirects: true
+      label: EVIL Sampler
+      method: POST
+      url: ct-log_certificates_2018.01-2018.06-30shards/_search
+    store-cache: false
+    store-cookie: false
+    use-dns-cache-mgr: false
+    variables:
+      TARGET_PORT: '443'
+      TARGET_URL: indalo-gl-pre-elb-es-external-1770461167.eu-west-1.elb.amazonaws.com
